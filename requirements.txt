@@ -1,0 +1,10 @@
+adafruit_bme680
+adafruit_bus_device
+adafruit_dotstar
+adafruit_minimqtt
+adafruit_pm25
+adafruit_register
+adafruit_sgp30
+adafruit_vcnl4040
+neopixel
+simpleio
