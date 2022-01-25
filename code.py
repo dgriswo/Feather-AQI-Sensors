@@ -113,13 +113,9 @@ bme680 = adafruit_bme680.Adafruit_BME680_I2C(board.I2C())
 sgp30 = adafruit_sgp30.Adafruit_SGP30(board.I2C())
 pm25 = PM25_I2C(board.I2C(), RESET_PIN)
 vcnl4040 = adafruit_vcnl4040.VCNL4040(board.I2C())
-ldo2 = digitalio.DigitalInOut(board.LDO2)
-ldo2.direction = digitalio.Direction.OUTPUT
-ldo2.value = True
 pixel = adafruit_dotstar.DotStar(
     board.APA102_SCK, board.APA102_MOSI, 1, brightness=0.1, auto_write=True
 )
-amb = analogio.AnalogIn(board.AMB)
 led = digitalio.DigitalInOut(board.LED)
 led.direction = digitalio.Direction.OUTPUT
 
