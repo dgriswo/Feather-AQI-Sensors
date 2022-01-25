@@ -4,8 +4,7 @@ import wifi
 import ssl
 import socketpool
 import json
-from math import exp,log
-import analogio
+from math import exp, log
 import digitalio
 import microcontroller
 import watchdog
@@ -46,10 +45,7 @@ def connected(client, userdata, flags, rc):
 
 
 def sgp30_publish_baseline(co2eq_base, tvoc_base):
-    _message = {
-        "co2eq_base": co2eq_base,
-        "tvoc_base": tvoc_base,
-    }
+    _message = {"co2eq_base": co2eq_base, "tvoc_base": tvoc_base}
     print("Publishing baselines")
     mqtt_client.publish(
         secrets["mqtt_baseline_topic"], json.dumps(_message), retain=True
@@ -69,7 +65,7 @@ def read_sensors():
 
     print("Setting absolute humidity in SGP30")
     sgp30.set_iaq_humidity(computeAbsoluteHumidity(_temperature, _humidity))
-    
+
     print("Reading sensors")
     _TVOC, _eCO2 = sgp30_get_data()
     try:
@@ -106,8 +102,10 @@ def computeAbsoluteHumidity(temperature, humidity):
     _absHumidity /= _absTemperature
     return round(_absHumidity, 2)
 
+
 def computeIndoorAirQuality(resistance, humidity):
     return log(resistance) + 0.04 * humidity
+
 
 bme680 = adafruit_bme680.Adafruit_BME680_I2C(board.I2C())
 sgp30 = adafruit_sgp30.Adafruit_SGP30(board.I2C())
@@ -186,7 +184,5 @@ while True:
             "**** Baseline values: eCO2 = 0x%x, TVOC = 0x%x"
             % (sgp30.baseline_eCO2, sgp30.baseline_TVOC)
         )
-        sgp30_publish_baseline(
-            sgp30.baseline_eCO2, sgp30.baseline_TVOC
-        )
+        sgp30_publish_baseline(sgp30.baseline_eCO2, sgp30.baseline_TVOC)
         pixel[0] = (0, 255, 0)
