@@ -31,6 +31,8 @@ This is an open-bench style stand for the MCU and sensors. A full enclosure woul
 
  https://www.tinkercad.com/things/aU5Z6n3TVC7 (Licensed under CC BY-SA 3.0)
 
+ <img src="https://user-images.githubusercontent.com/15717486/151087140-696f21f4-c8c2-4ca7-af3f-eb3fec597e32.jpg" width=504 height=672>
+
 
  ## Install
 
