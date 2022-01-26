@@ -43,7 +43,7 @@ This is an open-bench style stand for the MCU and sensors. A full enclosure woul
 
 Other settings in code.py
 - UPDATE_INTERVAL = 60 # Frequency to publish sensor data to MQTT in seconds. 
-- BASELINE_UPDATE_INTERVAL = 10 # Frequency to publish SGP Baseline to MQTT in minutes.
+- BASELINE_UPDATE_INTERVAL = 600 # Frequency to publish SGP Baseline to MQTT in seconds.
 
 
 ## Sample output to MQTT

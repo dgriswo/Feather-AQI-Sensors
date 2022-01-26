@@ -24,7 +24,7 @@ from secrets import secrets
 
 RESET_PIN = None
 UPDATE_INTERVAL = 60
-BASELINE_UPDATE_INTERVAL = 10
+BASELINE_UPDATE_INTERVAL = 600
 
 
 def message(client, topic, message):
