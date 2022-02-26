@@ -19,43 +19,28 @@ from adafruit_pm25.i2c import PM25_I2C
 import adafruit_vcnl4040
 import adafruit_minimqtt.adafruit_minimqtt as MQTT
 import adafruit_dotstar
+import foamyguy_nvm_helper as nvm_helper
 
 from secrets import secrets
 
 RESET_PIN = None
 UPDATE_INTERVAL = 60
-BASELINE_UPDATE_INTERVAL = 600
+BASELINE_UPDATE_INTERVAL = 1800
 
-
-def message(client, topic, message):
-    if topic == secrets["mqtt_baseline_topic"]:
-        _baseline = json.loads(message)
-        try:
-            print("Setting baselines from {}.".format(topic))
-            sgp30.set_iaq_baseline(_baseline["co2eq_base"], _baseline["tvoc_base"])
-        except (RuntimeError, ValueError) as error:
-            print("Could not get baseline from mqtt, setting defaults")
-            sgp30.set_iaq_baseline(0x8973, 0x8AAE)
-        finally:
-            mqtt_client.unsubscribe(topic)
-
-
-def connected(client, userdata, flags, rc):
-    client.subscribe(secrets["mqtt_baseline_topic"])
-
-
-def sgp30_publish_baseline(co2eq_base, tvoc_base):
-    _message = {"co2eq_base": co2eq_base, "tvoc_base": tvoc_base}
-    print("Publishing baselines")
-    mqtt_client.publish(
-        secrets["mqtt_baseline_topic"], json.dumps(_message), retain=True
-    )
-
+def sgp30_baseline_to_nvm(co2eq_base, tvoc_base):
+    nvm_helper.save_data({"co2eq_base": co2eq_base, "tvoc_base": tvoc_base}, test_run=False)
+    
+def sgp30_nvm_to_baseline():
+    _data = nvm_helper.read_data()
+    try:
+        sgp30.set_iaq_baseline(_data["co2eq_base"], _data["tvoc_base"])
+    except (RuntimeError,ValueError,EOFError) as error:
+        print("Could not get baseline from nvm, setting defaults")
+        sgp30.set_iaq_baseline(0x8973, 0x8AAE)
 
 def sgp30_get_data():
     sgp30.iaq_measure()
     return sgp30.TVOC, sgp30.eCO2
-
 
 def read_sensors():
     print("Getting temperature and humidity")
@@ -79,9 +64,7 @@ def read_sensors():
             },
             "gas": {
                 "VOC": computeIndoorAirQuality(_r_gas, _humidity),
-                "TVOC_Baseline": sgp30.baseline_TVOC,
                 "TVOC": _TVOC,
-                "eCO2_Baseline": sgp30.baseline_eCO2,
                 "eCO2": _eCO2,
             },
             "aqi": aqi,
@@ -138,13 +121,12 @@ try:
         socket_pool=pool,
         ssl_context=ssl.create_default_context(),
     )
-    mqtt_client.on_message = message
-    mqtt_client.on_connect = connected
     mqtt_client.connect()
 except MQTT.MMQTTException as e:
     print("Could not connect to mqtt broker. {}".format(e))
 
 print("Initializing SGP30")
+sgp30_nvm_to_baseline()
 sgp30.iaq_init()
 mqtt_client.loop()
 last_update = 0
@@ -184,5 +166,5 @@ while True:
             "**** Baseline values: eCO2 = 0x%x, TVOC = 0x%x"
             % (sgp30.baseline_eCO2, sgp30.baseline_TVOC)
         )
-        sgp30_publish_baseline(sgp30.baseline_eCO2, sgp30.baseline_TVOC)
+        sgp30_baseline_to_nvm(sgp30.baseline_eCO2, sgp30.baseline_TVOC)
         pixel[0] = (0, 255, 0)

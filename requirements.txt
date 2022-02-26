@@ -8,3 +8,4 @@ adafruit_sgp30
 adafruit_vcnl4040
 neopixel
 simpleio
+foamyguy_nvm_helper
