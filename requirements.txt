@@ -1,3 +1,7 @@
+# SPDX-FileCopyrightText: 2022 Daniel Griswold
+#
+# SPDX-License-Identifier: MIT
+
 adafruit_bme680
 adafruit_bus_device
 adafruit_dotstar

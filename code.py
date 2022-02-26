@@ -1,18 +1,26 @@
-import board
+# SPDX-FileCopyrightText: 2022 Daniel Griswold
+#
+# SPDX-License-Identifier: MIT
+"""
+
+Air Quality Sensor with data published to MQTT.
+
+
+"""
+
 import time
-import wifi
 import ssl
-import socketpool
 import json
-from math import exp, log
+from math import exp, log  # pylint: disable=no-name-in-module
+
+from secrets import secrets
+
 import digitalio
 import microcontroller
 import watchdog
-
-microcontroller.watchdog.timeout = 30
-microcontroller.watchdog.mode = watchdog.WatchDogMode.RESET
-microcontroller.watchdog.feed()
-
+import wifi
+import socketpool
+import board
 import adafruit_bme680
 import adafruit_sgp30
 from adafruit_pm25.i2c import PM25_I2C
@@ -21,7 +29,9 @@ import adafruit_minimqtt.adafruit_minimqtt as MQTT
 import adafruit_dotstar
 import foamyguy_nvm_helper as nvm_helper
 
-from secrets import secrets
+microcontroller.watchdog.timeout = 30
+microcontroller.watchdog.mode = watchdog.WatchDogMode.RESET
+microcontroller.watchdog.feed()
 
 RESET_PIN = None
 UPDATE_INTERVAL = 60
@@ -32,46 +42,54 @@ MQTT_SYSTEM = secrets["mqtt_topic"] + "/system"
 
 
 def sgp30_baseline_to_nvm(co2eq_base, tvoc_base):
+    """ Writes the baseline sgp30 values to non-volatile memory. """
     nvm_helper.save_data(
         {"co2eq_base": co2eq_base, "tvoc_base": tvoc_base}, test_run=False
     )
 
 
 def sgp30_nvm_to_baseline():
+    """
+    Retrieves the baseline sgp30 values from non-volatile memory.
+    Sets default values if nvm values are missing or invalid.
+    """
     _data = nvm_helper.read_data()
     try:
         sgp30.set_iaq_baseline(_data["co2eq_base"], _data["tvoc_base"])
-    except (RuntimeError, ValueError, EOFError) as error:
-        print("Could not get baseline from nvm, setting defaults")
+    except (RuntimeError, ValueError, EOFError) as _error:
+        print("Could not get baseline from nvm, setting defaults. {}".format(_error))
         sgp30.set_iaq_baseline(0x8973, 0x8AAE)
 
 
 def sgp30_get_data(temperature, humidity):
-    sgp30.set_iaq_humidity(computeAbsoluteHumidity(temperature, humidity))
+    """ sends temperature and humidity to sgp30, returns TVOC and eCO2 """
+    sgp30.set_iaq_humidity(compute_absolute_humidity(temperature, humidity))
     sgp30.iaq_measure()
     return sgp30.TVOC, sgp30.eCO2
 
 
 def get_sensor_data():
+    """ Creates dictionary of sensor values. """
     _temperature = bme680.temperature
     _humidity = bme680.humidity
     _pressure = bme680.pressure
     _r_gas = bme680.gas
 
-    _TVOC, _eCO2 = sgp30_get_data(_temperature, _humidity)
+    _tvoc, _eco2 = sgp30_get_data(_temperature, _humidity)
 
     _data = {}
     _data["temperature"] = _temperature
     _data["humidity"] = _humidity
     _data["pressure"] = _pressure
     _data["light"] = vcnl4040.lux
-    _data["VOC"] = computeIndoorAirQuality(_r_gas, _humidity)
-    _data["TVOC"] = _TVOC
-    _data["eCO2"] = _eCO2
+    _data["VOC"] = compute_indoor_air_quality(_r_gas, _humidity)
+    _data["TVOC"] = _tvoc
+    _data["eCO2"] = _eco2
     return _data
 
 
 def get_system_data():
+    """ Creates dictionary of system information """
     _data = {}
     _data["reset_reason"] = str(microcontroller.cpu.reset_reason)[28:]
     _data["time"] = time.monotonic()
@@ -80,17 +98,19 @@ def get_system_data():
     return _data
 
 
-def computeAbsoluteHumidity(temperature, humidity):
-    _absTemperature = temperature + 273.15
-    _absHumidity = 6.112
-    _absHumidity *= exp((17.67 * temperature) / (243.5 + temperature))
-    _absHumidity *= humidity
-    _absHumidity *= 2.1674
-    _absHumidity /= _absTemperature
-    return round(_absHumidity, 2)
+def compute_absolute_humidity(temperature, humidity):
+    """ Given a temperature and humidity, returns absolute humidity. """
+    _abs_temperature = temperature + 273.15
+    _abs_humidity = 6.112
+    _abs_humidity *= exp((17.67 * temperature) / (243.5 + temperature))
+    _abs_humidity *= humidity
+    _abs_humidity *= 2.1674
+    _abs_humidity /= _abs_temperature
+    return round(_abs_humidity, 2)
 
 
-def computeIndoorAirQuality(resistance, humidity):
+def compute_indoor_air_quality(resistance, humidity):
+    """ Calculates IAQ from BME680 gas and humidity. """
     return log(resistance) + 0.04 * humidity
 
 
@@ -112,8 +132,8 @@ try:
     wifi.radio.connect(secrets["ssid"], secrets["password"])
     print("Connected to %s!" % secrets["ssid"])
     pool = socketpool.SocketPool(wifi.radio)
-except Exception as e:
-    print("Could not initialize network. {}".format(e))
+except Exception as error:
+    print("Could not initialize network. {}".format(error))
     raise
 
 try:
@@ -127,15 +147,15 @@ try:
         ssl_context=ssl.create_default_context(),
     )
     mqtt_client.connect()
-except MQTT.MMQTTException as e:
-    print("Could not connect to mqtt broker. {}".format(e))
+except MQTT.MMQTTException as error:
+    print("Could not connect to mqtt broker. {}".format(error))
     raise
 
 sgp30_nvm_to_baseline()
 sgp30.iaq_init()
 
-last_update = 0
-last_iaq = 0
+last_update = 0  # pylint: disable=invalid-name
+last_iaq = 0  # pylint: disable=invalid-name
 baseline_last_update = time.monotonic()
 
 while True:
@@ -157,24 +177,24 @@ while True:
         print("Publishing AQI data")
         try:
             mqtt_client.publish(MQTT_AIR_QUALITY, json.dumps(pm25.read()), retain=True)
-        except MQTT.MMQTTException as e:
-            print("Could not publish to mqtt broker. {}".format(e))
+        except MQTT.MMQTTException as error:
+            print("Could not publish to mqtt broker. {}".format(error))
         except RuntimeError:
-            print("Could not read from PM25 sensor. {}".format(e))
+            print("Could not read from PM25 sensor. {}".format(error))
 
         print("Publishing environmental data")
         try:
             mqtt_client.publish(
                 MQTT_ENVIRONMENT, json.dumps(get_sensor_data()), retain=True
             )
-        except MQTT.MMQTTException as e:
-            print("Could not publish to mqtt broker. {}".format(e))
+        except MQTT.MMQTTException as error:
+            print("Could not publish to mqtt broker. {}".format(error))
 
         print("Publishing system data")
         try:
             mqtt_client.publish(MQTT_SYSTEM, json.dumps(get_system_data()), retain=True)
-        except MQTT.MMQTTException as e:
-            print("Could not publish to mqtt broker. {}".format(e))
+        except MQTT.MMQTTException as error:
+            print("Could not publish to mqtt broker. {}".format(error))
 
         led.value = False
 

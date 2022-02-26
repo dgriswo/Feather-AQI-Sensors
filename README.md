@@ -1,3 +1,9 @@
+<!--
+SPDX-FileCopyrightText: 2022 Daniel Griswold
+
+SPDX-License-Identifier: MIT
+-->
+
 # Air Quality Monitor
 
 
@@ -44,7 +50,7 @@ This is an open-bench style stand for the MCU and sensors. A full enclosure woul
 3. Copy secrets.example to secrets.py and edit with appropriate values.
 
 Other settings in code.py
-- UPDATE_INTERVAL = 60 # Frequency to publish sensor data to MQTT in seconds. 
+- UPDATE_INTERVAL = 60 # Frequency to publish sensor data to MQTT in seconds.
 - BASELINE_UPDATE_INTERVAL = 1800 # Frequency to write SGP Baseline to nvm in seconds.
 
 
@@ -52,35 +58,35 @@ Other settings in code.py
 
 /environment:
     {
-        "pressure": 995.703, 
-        "temperature": 23.8124, 
-        "light": 197.5, 
-        "TVOC": 33, 
-        "humidity": 26.1576, 
-        "eCO2": 420, 
+        "pressure": 995.703,
+        "temperature": 23.8124,
+        "light": 197.5,
+        "TVOC": 33,
+        "humidity": 26.1576,
+        "eCO2": 420,
         "VOC": 13.031
     }
 
 /air-quality:
     {
-        "pm10 env": 0, 
-        "pm100 env": 0, 
-        "pm100 standard": 0, 
-        "particles 03um": 45, 
-        "pm25 standard": 0, 
-        "particles 10um": 0, 
-        "pm10 standard": 0, 
-        "pm25 env": 0, 
-        "particles 05um": 15, 
-        "particles 25um": 0, 
-        "particles 100um": 0, 
+        "pm10 env": 0,
+        "pm100 env": 0,
+        "pm100 standard": 0,
+        "particles 03um": 45,
+        "pm25 standard": 0,
+        "particles 10um": 0,
+        "pm10 standard": 0,
+        "pm25 env": 0,
+        "particles 05um": 15,
+        "particles 25um": 0,
+        "particles 100um": 0,
         "particles 50um": 0
     }
 
 /system:
     {
-        "time": 3237.76, 
-        "ip_address": 192.168.x.x, 
-        "board_id": "unexpectedmaker_feathers2", 
+        "time": 3237.76,
+        "ip_address": 192.168.x.x,
+        "board_id": "unexpectedmaker_feathers2",
         "reset_reason": "POWER_ON"
     }
