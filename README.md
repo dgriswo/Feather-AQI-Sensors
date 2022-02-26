@@ -50,30 +50,37 @@ Other settings in code.py
 
 ## Sample output to MQTT
 
+/environment:
     {
-        "gas": {
-            "eCO2": 404,
-            "VOC": 11.884,
-            "TVOC": 141
-        },
-        "aqi": {
-            "pm10 env": 0,
-            "pm100 env": 0,
-            "pm100 standard": 0,
-            "particles 03um": 138,
-            "pm25 standard": 0,
-            "particles 10um": 4,
-            "pm10 standard": 0,
-            "pm25 env": 0,
-            "particles 05um": 35,
-            "particles 25um": 0,
-            "particles 100um": 0,
-            "particles 50um": 0
-        },
-        "environmental": {
-            "humidity": 28.018,
-            "temperature": 26.189,
-            "pressure": 991.286,
-            "light": 122.3
-        }
+        "pressure": 995.703, 
+        "temperature": 23.8124, 
+        "light": 197.5, 
+        "TVOC": 33, 
+        "humidity": 26.1576, 
+        "eCO2": 420, 
+        "VOC": 13.031
+    }
+
+/air-quality:
+    {
+        "pm10 env": 0, 
+        "pm100 env": 0, 
+        "pm100 standard": 0, 
+        "particles 03um": 45, 
+        "pm25 standard": 0, 
+        "particles 10um": 0, 
+        "pm10 standard": 0, 
+        "pm25 env": 0, 
+        "particles 05um": 15, 
+        "particles 25um": 0, 
+        "particles 100um": 0, 
+        "particles 50um": 0
+    }
+
+/system:
+    {
+        "time": 3237.76, 
+        "ip_address": 192.168.x.x, 
+        "board_id": "unexpectedmaker_feathers2", 
+        "reset_reason": "POWER_ON"
     }
