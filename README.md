@@ -7,7 +7,7 @@ This repository contains code and details that collect local environmental data 
 
 MQTT is a standard, lightweight, messaging protocol for IoT devices and provides a nice medium for integrations into other systems, such as Home Assistant or InfluxDB.
 
-Because the SGP30 requires baseline values, the current baseline is regularly published to MQTT and read at startup.
+Because the SGP30 requires baseline values, the current baseline is regularly written to non-volatile memory and read at startup.
 
 
 ## Hardware
@@ -45,7 +45,7 @@ This is an open-bench style stand for the MCU and sensors. A full enclosure woul
 
 Other settings in code.py
 - UPDATE_INTERVAL = 60 # Frequency to publish sensor data to MQTT in seconds. 
-- BASELINE_UPDATE_INTERVAL = 600 # Frequency to publish SGP Baseline to MQTT in seconds.
+- BASELINE_UPDATE_INTERVAL = 1800 # Frequency to write SGP Baseline to nvm in seconds.
 
 
 ## Sample output to MQTT
@@ -53,8 +53,6 @@ Other settings in code.py
     {
         "gas": {
             "eCO2": 404,
-            "eCO2_Baseline": 39752,
-            "TVOC_Baseline": 39912,
             "VOC": 11.884,
             "TVOC": 141
         },
