@@ -29,9 +29,6 @@ import adafruit_minimqtt.adafruit_minimqtt as MQTT
 import adafruit_dotstar
 import foamyguy_nvm_helper as nvm_helper
 
-import displayio
-import adafruit_displayio_ssd1306
-
 microcontroller.watchdog.timeout = 30
 microcontroller.watchdog.mode = watchdog.WatchDogMode.RESET
 microcontroller.watchdog.feed()
@@ -119,6 +116,7 @@ def compute_indoor_air_quality(resistance, humidity):
 
 
 def handle_mqtt_exception(error):
+    """ Attempt MQTT reconnect, if that fails, reset the board """
     global mqtt_client
     print("Could not publish to mqtt broker. {}".format(error))
     try:
@@ -126,7 +124,7 @@ def handle_mqtt_exception(error):
     except MQTT.MQTTException:
         try:
             mqtt_client.reconnect()
-        except Exception as e:
+        except Exception:
             microcontroller.reset()
     finally:
         mqtt_client.publish(MQTT_ERROR, error, retain=True)
