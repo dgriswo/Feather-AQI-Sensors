@@ -29,6 +29,9 @@ import adafruit_minimqtt.adafruit_minimqtt as MQTT
 import adafruit_dotstar
 import foamyguy_nvm_helper as nvm_helper
 
+import displayio
+import adafruit_displayio_ssd1306
+
 microcontroller.watchdog.timeout = 30
 microcontroller.watchdog.mode = watchdog.WatchDogMode.RESET
 microcontroller.watchdog.feed()
@@ -39,10 +42,11 @@ BASELINE_UPDATE_INTERVAL = 1800
 MQTT_ENVIRONMENT = secrets["mqtt_topic"] + "/environment"
 MQTT_AIR_QUALITY = secrets["mqtt_topic"] + "/air-quality"
 MQTT_SYSTEM = secrets["mqtt_topic"] + "/system"
+MQTT_ERROR = secrets["mqtt_topic"] + "/error"
 
 
 def sgp30_baseline_to_nvm(co2eq_base, tvoc_base):
-    """ Writes the baseline sgp30 values to non-volatile memory. """
+    """Writes the baseline sgp30 values to non-volatile memory."""
     nvm_helper.save_data(
         {"co2eq_base": co2eq_base, "tvoc_base": tvoc_base}, test_run=False
     )
@@ -62,14 +66,14 @@ def sgp30_nvm_to_baseline():
 
 
 def sgp30_get_data(temperature, humidity):
-    """ sends temperature and humidity to sgp30, returns TVOC and eCO2 """
+    """sends temperature and humidity to sgp30, returns TVOC and eCO2"""
     sgp30.set_iaq_humidity(compute_absolute_humidity(temperature, humidity))
     sgp30.iaq_measure()
     return sgp30.TVOC, sgp30.eCO2
 
 
 def get_sensor_data():
-    """ Creates dictionary of sensor values. """
+    """Creates dictionary of sensor values."""
     _temperature = bme680.temperature
     _humidity = bme680.humidity
     _pressure = bme680.pressure
@@ -89,7 +93,7 @@ def get_sensor_data():
 
 
 def get_system_data():
-    """ Creates dictionary of system information """
+    """Creates dictionary of system information"""
     _data = {}
     _data["reset_reason"] = str(microcontroller.cpu.reset_reason)[28:]
     _data["time"] = time.monotonic()
@@ -99,7 +103,7 @@ def get_system_data():
 
 
 def compute_absolute_humidity(temperature, humidity):
-    """ Given a temperature and humidity, returns absolute humidity. """
+    """Given a temperature and humidity, returns absolute humidity."""
     _abs_temperature = temperature + 273.15
     _abs_humidity = 6.112
     _abs_humidity *= exp((17.67 * temperature) / (243.5 + temperature))
@@ -110,8 +114,22 @@ def compute_absolute_humidity(temperature, humidity):
 
 
 def compute_indoor_air_quality(resistance, humidity):
-    """ Calculates IAQ from BME680 gas and humidity. """
+    """Calculates IAQ from BME680 gas and humidity."""
     return log(resistance) + 0.04 * humidity
+
+
+def handle_mqtt_exception(error):
+    global mqtt_client
+    print("Could not publish to mqtt broker. {}".format(error))
+    try:
+        mqtt_client.is_connected()
+    except MQTT.MQTTException:
+        try:
+            mqtt_client.reconnect()
+        except Exception as e:
+            microcontroller.reset()
+    finally:
+        mqtt_client.publish(MQTT_ERROR, error, retain=True)
 
 
 bme680 = adafruit_bme680.Adafruit_BME680_I2C(board.I2C())
@@ -146,7 +164,9 @@ try:
         socket_pool=pool,
         ssl_context=ssl.create_default_context(),
     )
+    print("Connecting to %s" % secrets["mqtt_broker"])
     mqtt_client.connect()
+    print("Connected to %s" % secrets["mqtt_broker"])
 except MQTT.MMQTTException as error:
     print("Could not connect to mqtt broker. {}".format(error))
     raise
@@ -178,7 +198,7 @@ while True:
         try:
             mqtt_client.publish(MQTT_AIR_QUALITY, json.dumps(pm25.read()), retain=True)
         except MQTT.MMQTTException as error:
-            print("Could not publish to mqtt broker. {}".format(error))
+            handle_mqtt_exception(error)
         except RuntimeError:
             print("Could not read from PM25 sensor. {}".format(error))
 
@@ -188,13 +208,13 @@ while True:
                 MQTT_ENVIRONMENT, json.dumps(get_sensor_data()), retain=True
             )
         except MQTT.MMQTTException as error:
-            print("Could not publish to mqtt broker. {}".format(error))
+            handle_mqtt_exception(error)
 
         print("Publishing system data")
         try:
             mqtt_client.publish(MQTT_SYSTEM, json.dumps(get_system_data()), retain=True)
         except MQTT.MMQTTException as error:
-            print("Could not publish to mqtt broker. {}".format(error))
+            handle_mqtt_exception(error)
 
         led.value = False
 
