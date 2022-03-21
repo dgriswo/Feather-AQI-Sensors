@@ -121,7 +121,7 @@ def handle_mqtt_exception(error):
     print("Could not publish to mqtt broker. {}".format(error))
     try:
         mqtt_client.is_connected()
-    except MQTT.MQTTException:
+    except MQTT.MMQTTException:
         try:
             mqtt_client.reconnect()
         except Exception:
