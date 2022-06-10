@@ -131,9 +131,9 @@ def publish_to_mqtt(topic, message):
     except OSError:
         """wifi is not connected."""
         microcontroller.reset()
-    except Exception as error:  # pylint: disable=broad-except,redefined-outer-name
+    except Exception as _error:  # pylint: disable=broad-except,redefined-outer-name
         """some other error."""
-        print("Unknown error. {}".format(error))
+        print("Unknown error. {}".format(_error))
         microcontroller.reset()
 
 
@@ -155,8 +155,8 @@ try:
     wifi.radio.connect(secrets["ssid"], secrets["password"])
     print("Connected to %s!" % secrets["ssid"])
     pool = socketpool.SocketPool(wifi.radio)
-except Exception as e:
-    print("Could not initialize network. {}".format(e))
+except Exception as _error:  # pylint: disable=broad-except,redefined-outer-name
+    print("Could not initialize network. {}".format(_error))
     raise
 
 try:
@@ -172,8 +172,11 @@ try:
     print("Connecting to %s" % secrets["mqtt_broker"])
     mqtt_client.connect()
     print("Connected to %s" % secrets["mqtt_broker"])
-except (MQTT.MMQTTException, OSError) as error:
-    print("Could not connect to mqtt broker. {}".format(error))
+except (
+    MQTT.MMQTTException,
+    OSError,
+) as _error:  # pylint: disable=broad-except,redefined-outer-name
+    print("Could not connect to mqtt broker. {}".format(_error))
     raise
 
 sgp30_nvm_to_baseline()
@@ -202,8 +205,8 @@ while True:
         print("Publishing AQI data")
         try:
             publish_to_mqtt(MQTT_AIR_QUALITY, json.dumps(pm25.read()))
-        except RuntimeError as error:
-            print("Could not read from PM25 sensor. {}".format(error))
+        except RuntimeError as _error:  # pylint: disable=broad-except,redefined-outer-name
+            print("Could not read from PM25 sensor. {}".format(_error))
 
         print("Publishing environmental data")
         publish_to_mqtt(MQTT_ENVIRONMENT, json.dumps(get_sensor_data()))
