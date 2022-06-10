@@ -39,10 +39,11 @@ BASELINE_UPDATE_INTERVAL = 1800
 MQTT_ENVIRONMENT = secrets["mqtt_topic"] + "/environment"
 MQTT_AIR_QUALITY = secrets["mqtt_topic"] + "/air-quality"
 MQTT_SYSTEM = secrets["mqtt_topic"] + "/system"
+MQTT_ERROR = secrets["mqtt_topic"] + "/error"
 
 
 def sgp30_baseline_to_nvm(co2eq_base, tvoc_base):
-    """ Writes the baseline sgp30 values to non-volatile memory. """
+    """Writes the baseline sgp30 values to non-volatile memory."""
     nvm_helper.save_data(
         {"co2eq_base": co2eq_base, "tvoc_base": tvoc_base}, test_run=False
     )
@@ -62,14 +63,14 @@ def sgp30_nvm_to_baseline():
 
 
 def sgp30_get_data(temperature, humidity):
-    """ sends temperature and humidity to sgp30, returns TVOC and eCO2 """
+    """sends temperature and humidity to sgp30, returns TVOC and eCO2"""
     sgp30.set_iaq_humidity(compute_absolute_humidity(temperature, humidity))
     sgp30.iaq_measure()
     return sgp30.TVOC, sgp30.eCO2
 
 
 def get_sensor_data():
-    """ Creates dictionary of sensor values. """
+    """Creates dictionary of sensor values."""
     _temperature = bme680.temperature
     _humidity = bme680.humidity
     _pressure = bme680.pressure
@@ -78,18 +79,18 @@ def get_sensor_data():
     _tvoc, _eco2 = sgp30_get_data(_temperature, _humidity)
 
     _data = {}
-    _data["temperature"] = _temperature
-    _data["humidity"] = _humidity
-    _data["pressure"] = _pressure
+    _data["temperature"] = round(_temperature, 1)
+    _data["humidity"] = round(_humidity)
+    _data["pressure"] = round(_pressure)
     _data["light"] = vcnl4040.lux
-    _data["VOC"] = compute_indoor_air_quality(_r_gas, _humidity)
+    _data["VOC"] = round(compute_indoor_air_quality(_r_gas, _humidity))
     _data["TVOC"] = _tvoc
     _data["eCO2"] = _eco2
     return _data
 
 
 def get_system_data():
-    """ Creates dictionary of system information """
+    """Creates dictionary of system information"""
     _data = {}
     _data["reset_reason"] = str(microcontroller.cpu.reset_reason)[28:]
     _data["time"] = time.monotonic()
@@ -99,7 +100,7 @@ def get_system_data():
 
 
 def compute_absolute_humidity(temperature, humidity):
-    """ Given a temperature and humidity, returns absolute humidity. """
+    """Given a temperature and humidity, returns absolute humidity."""
     _abs_temperature = temperature + 273.15
     _abs_humidity = 6.112
     _abs_humidity *= exp((17.67 * temperature) / (243.5 + temperature))
@@ -110,8 +111,30 @@ def compute_absolute_humidity(temperature, humidity):
 
 
 def compute_indoor_air_quality(resistance, humidity):
-    """ Calculates IAQ from BME680 gas and humidity. """
+    """Calculates IAQ from BME680 gas and humidity."""
     return log(resistance) + 0.04 * humidity
+
+
+def publish_to_mqtt(topic, message):
+    """Publish data to mqtt"""
+    try:
+        mqtt_client.is_connected()
+        mqtt_client.publish(topic, message, retain=True)
+    except MQTT.MMQTTException:
+        """MQTT is not connected.  Attempt reconnect and publish."""
+        try:
+            mqtt_client.reconnect()
+            mqtt_client.publish(topic, message, retain=True)
+        except Exception:  # pylint: disable=broad-except
+            """Couldn't reconnect and publish."""
+            microcontroller.reset()
+    except OSError:
+        """wifi is not connected."""
+        microcontroller.reset()
+    except Exception as error:  # pylint: disable=broad-except,redefined-outer-name
+        """some other error."""
+        print("Unknown error. {}".format(error))
+        microcontroller.reset()
 
 
 bme680 = adafruit_bme680.Adafruit_BME680_I2C(board.I2C())
@@ -132,8 +155,8 @@ try:
     wifi.radio.connect(secrets["ssid"], secrets["password"])
     print("Connected to %s!" % secrets["ssid"])
     pool = socketpool.SocketPool(wifi.radio)
-except Exception as error:
-    print("Could not initialize network. {}".format(error))
+except Exception as e:
+    print("Could not initialize network. {}".format(e))
     raise
 
 try:
@@ -146,8 +169,10 @@ try:
         socket_pool=pool,
         ssl_context=ssl.create_default_context(),
     )
+    print("Connecting to %s" % secrets["mqtt_broker"])
     mqtt_client.connect()
-except MQTT.MMQTTException as error:
+    print("Connected to %s" % secrets["mqtt_broker"])
+except (MQTT.MMQTTException, OSError) as error:
     print("Could not connect to mqtt broker. {}".format(error))
     raise
 
@@ -176,25 +201,15 @@ while True:
 
         print("Publishing AQI data")
         try:
-            mqtt_client.publish(MQTT_AIR_QUALITY, json.dumps(pm25.read()), retain=True)
-        except MQTT.MMQTTException as error:
-            print("Could not publish to mqtt broker. {}".format(error))
-        except RuntimeError:
+            publish_to_mqtt(MQTT_AIR_QUALITY, json.dumps(pm25.read()))
+        except RuntimeError as error:
             print("Could not read from PM25 sensor. {}".format(error))
 
         print("Publishing environmental data")
-        try:
-            mqtt_client.publish(
-                MQTT_ENVIRONMENT, json.dumps(get_sensor_data()), retain=True
-            )
-        except MQTT.MMQTTException as error:
-            print("Could not publish to mqtt broker. {}".format(error))
+        publish_to_mqtt(MQTT_ENVIRONMENT, json.dumps(get_sensor_data()))
 
         print("Publishing system data")
-        try:
-            mqtt_client.publish(MQTT_SYSTEM, json.dumps(get_system_data()), retain=True)
-        except MQTT.MMQTTException as error:
-            print("Could not publish to mqtt broker. {}".format(error))
+        publish_to_mqtt(MQTT_SYSTEM, json.dumps(get_system_data()))
 
         led.value = False
 
